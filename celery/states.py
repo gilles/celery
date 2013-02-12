@@ -133,6 +133,8 @@ FAILURE = 'FAILURE'
 REVOKED = 'REVOKED'
 #: Task is waiting for retry.
 RETRY = 'RETRY'
+#: Task is rejected.
+REJECTED = 'REJECTED'
 IGNORED = 'IGNORED'
 
 READY_STATES = frozenset([SUCCESS, FAILURE, REVOKED])

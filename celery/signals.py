@@ -29,6 +29,9 @@ task_retry = Signal(providing_args=[
 task_failure = Signal(providing_args=[
     'task_id', 'exception', 'args', 'kwargs', 'traceback', 'einfo',
 ])
+task_rejected = Signal(providing_args=[
+    'task_id', 'exception', 'args', 'kwargs', 'traceback', 'einfo',
+])
 task_revoked = Signal(providing_args=['terminated', 'signum', 'expired'])
 celeryd_init = Signal(providing_args=['instance', 'conf'])
 celeryd_after_setup = Signal(providing_args=['instance', 'conf'])

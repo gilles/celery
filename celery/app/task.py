@@ -14,7 +14,7 @@ from celery import current_app
 from celery import states
 from celery._state import get_current_worker_task, _task_stack
 from celery.datastructures import ExceptionInfo
-from celery.exceptions import MaxRetriesExceededError, RetryTaskError
+from celery.exceptions import MaxRetriesExceededError, RetryTaskError, RejectedTaskError
 from celery.five import class_property, items, with_metaclass
 from celery.result import EagerResult
 from celery.utils import gen_task_name, fun_takes_kwargs, uuid, maybe_reraise
@@ -578,6 +578,22 @@ class Task(object):
         # then the retry must also be executed eagerly.
         S.apply().get() if request.is_eager else S.apply_async()
         ret = RetryTaskError(exc=exc, when=eta or countdown)
+        if throw:
+            raise ret
+        return ret
+
+    def reject(self, throw=True):
+        """
+        Reject the task
+        :keyword throw: If this is :const:`False`, do not raise the
+                        :exc:`~celery.exceptions.RetryTaskError` exception,
+                        that tells the worker to mark the task as being
+                        retried.  Note that this means the task will be
+                        marked as failed if the task raises an exception,
+                        or successful if it returns.
+        :return:
+        """
+        ret = RejectedTaskError()
         if throw:
             raise ret
         return ret

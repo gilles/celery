@@ -54,7 +54,7 @@ def asynloop(obj, connection, consumer, strategies, ns, hub, qos,
                 return handle_unknown_message(body, message)
 
             try:
-                strategies[name](message, body, message.ack_log_error)
+                strategies[name](message, body, message.ack_log_error, message.reject_log_error)
             except KeyError as exc:
                 handle_unknown_task(body, message, exc)
             except InvalidTaskError as exc:
@@ -130,7 +130,7 @@ def synloop(obj, connection, consumer, strategies, ns, hub, qos,
             return handle_unknown_message(body, message)
 
         try:
-            strategies[name](message, body, message.ack_log_error)
+            strategies[name](message, body, message.ack_log_error, message.reject_log_error)
         except KeyError as exc:
             handle_unknown_task(body, message, exc)
         except InvalidTaskError as exc:

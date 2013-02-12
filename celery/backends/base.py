@@ -81,7 +81,7 @@ class BaseBackend(object):
         return self.store_result(task_id, result, status=states.SUCCESS)
 
     def mark_as_failure(self, task_id, exc, traceback=None):
-        """Mark task as executed with failure. Stores the execption."""
+        """Mark task as executed with failure. Stores the exception."""
         return self.store_result(task_id, exc, status=states.FAILURE,
                                  traceback=traceback)
 
@@ -99,6 +99,11 @@ class BaseBackend(object):
         """Mark task as being retries. Stores the current
         exception (if any)."""
         return self.store_result(task_id, exc, status=states.RETRY,
+                                 traceback=traceback)
+
+    def mark_as_rejected(self, task_id, exc, traceback=None):
+        """Mark task as rejected. Stores the exception (if any)."""
+        return self.store_result(task_id, exc, status=states.REJECTED,
                                  traceback=traceback)
 
     def mark_as_revoked(self, task_id, reason=''):

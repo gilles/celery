@@ -68,10 +68,10 @@ NEEDS_KWDICT = sys.version_info <= (2, 6)
 class Request(object):
     """A request for task execution."""
     __slots__ = ('app', 'name', 'id', 'args', 'kwargs',
-                 'on_ack', 'delivery_info', 'hostname',
+                 'on_ack', 'on_reject', 'delivery_info', 'hostname',
                  'eventer', 'connection_errors',
                  'task', 'eta', 'expires',
-                 'request_dict', 'acknowledged', 'utc',
+                 'request_dict', 'acknowledged', 'rejected', 'utc',
                  'time_start', 'worker_pid', '_already_revoked',
                  '_terminate_on_ack', '_tzlocal')
 
@@ -97,7 +97,7 @@ class Request(object):
     #: Format string used to log task retry.
     retry_msg = """Task %(name)s[%(id)s] retry: %(exc)s"""
 
-    def __init__(self, body, on_ack=noop,
+    def __init__(self, body, on_ack=noop, on_reject=noop,
                  hostname=None, eventer=None, app=None,
                  connection_errors=None, request_dict=None,
                  delivery_info=None, task=None, **opts):
@@ -117,11 +117,12 @@ class Request(object):
         expires = body.get('expires')
         utc = self.utc = body.get('utc', False)
         self.on_ack = on_ack
+        self.on_reject = on_reject
         self.hostname = hostname or socket.gethostname()
         self.eventer = eventer
         self.connection_errors = connection_errors or ()
         self.task = task or self.app.tasks[name]
-        self.acknowledged = self._already_revoked = False
+        self.acknowledged = self._already_revoked = self.rejected = False
         self.time_start = self.worker_pid = self._terminate_on_ack = None
         self._tzlocal = None
 
@@ -434,9 +435,15 @@ class Request(object):
 
     def acknowledge(self):
         """Acknowledge task."""
-        if not self.acknowledged:
+        if not self.acknowledged and not self.rejected:
             self.on_ack(logger, self.connection_errors)
             self.acknowledged = True
+
+    def reject(self):
+        """Reject the task"""
+        if not self.rejected and not self.acknowledged:
+            self.on_reject(logger, self.connection_errors)
+            self.rejected = True
 
     def repr_result(self, result, maxlen=46):
         # 46 is the length needed to fit
@@ -451,6 +458,7 @@ class Request(object):
                 'hostname': self.hostname,
                 'time_start': self.time_start,
                 'acknowledged': self.acknowledged,
+                'rejected': self.rejected,
                 'delivery_info': self.delivery_info,
                 'worker_pid': self.worker_pid}
 

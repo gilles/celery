@@ -100,6 +100,10 @@ class RetryTaskError(Exception):
         return self.__class__, (self.message, self.excs, self.when)
 
 
+class RejectedTaskError(Exception):
+    """The task is rejected."""
+
+
 class TaskRevokedError(Exception):
     """The task has been revoked, so no result available."""
 

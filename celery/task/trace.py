@@ -29,7 +29,7 @@ from celery._state import _task_stack
 from celery.app import set_default_app
 from celery.app.task import Task as BaseTask, Context
 from celery.datastructures import ExceptionInfo
-from celery.exceptions import Ignore, RetryTaskError
+from celery.exceptions import Ignore, RetryTaskError, RejectedTaskError
 from celery.utils.log import get_logger
 from celery.utils.objects import mro_lookup
 from celery.utils.serialization import get_pickleable_exception
@@ -44,6 +44,7 @@ SUCCESS = states.SUCCESS
 IGNORED = states.IGNORED
 RETRY = states.RETRY
 FAILURE = states.FAILURE
+REJECTED = states.REJECTED
 EXCEPTION_STATES = states.EXCEPTION_STATES
 IGNORE_STATES = frozenset([IGNORED, RETRY])
 
@@ -74,6 +75,7 @@ class TraceInfo(object):
         return {
             RETRY: self.handle_retry,
             FAILURE: self.handle_failure,
+            REJECTED: self.handle_rejected
         }[self.state](task, store_errors=store_errors)
 
     def handle_retry(self, task, store_errors=True):
@@ -112,6 +114,26 @@ class TraceInfo(object):
             return einfo
         finally:
             del(tb)
+
+    def handle_rejected(self, task, store_errors=True):
+        """Handle rejected task"""
+        req = task.request
+        type_, _, tb = sys.exc_info()
+        try:
+            exc = self.retval
+            einfo = ExceptionInfo((type_, get_pickleable_exception(exc), tb))
+            if store_errors:
+                task.backend.mark_as_rejected(req.id, exc, einfo.traceback)
+            task.on_failure(exc, req.id, req.args, req.kwargs, einfo)
+            signals.task_rejected.send(sender=task, task_id=req.id,
+                                      exception=exc, args=req.args,
+                                      kwargs=req.kwargs,
+                                      traceback=einfo.tb,
+                                      einfo=einfo)
+            return einfo
+        finally:
+            del(tb)
+
 
 
 def build_tracer(name, task, loader=None, hostname=None, store_errors=True,
@@ -208,6 +230,10 @@ def build_tracer(name, task, loader=None, hostname=None, store_errors=True,
                     state, retval = I.state, I.retval
                 except RetryTaskError as exc:
                     I = Info(RETRY, exc)
+                    state, retval = I.state, I.retval
+                    R = I.handle_error_state(task, eager=eager)
+                except RejectedTaskError as exc:
+                    I = Info(REJECTED, exc)
                     state, retval = I.state, I.retval
                     R = I.handle_error_state(task, eager=eager)
                 except Exception as exc:
